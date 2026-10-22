@@ -6,3 +6,4 @@ accounts.json
 *.sha256
 *.har
 __pycache__/
+.aur-kcxy-wifi-bin/

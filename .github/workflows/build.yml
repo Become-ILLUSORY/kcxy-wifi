@@ -81,3 +81,30 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
+
+  aur:
+    needs: release
+    runs-on: ubuntu-latest
+    # AUR 需要维护者私钥，没配置时跳过而不是让整个流程失败
+    if: startsWith(github.ref, 'refs/tags/v') && vars.AUR_PUBLISH == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update AUR package
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$AUR_SSH_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          # 固定 AUR 的主机公钥，避免 ssh-keyscan 被中间人替换
+          cat >> ~/.ssh/known_hosts <<'EOF'
+          aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN
+          EOF
+          cat >> ~/.ssh/config <<'EOF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          EOF
+          chmod 600 ~/.ssh/config
+          ./aur/update-aur.sh "${GITHUB_REF_NAME#v}"

@@ -87,7 +87,26 @@ KCXY_USERNAME=20240001 KCXY_PASSWORD=123456 sudo -E ./kcxy-wifi
 sudo ip route add 10.147.103.3/32 via <WiFi网关> dev wlan0
 ```
 
-## 开机自启
+## 安装（Arch Linux）
+
+从 AUR 安装预编译包：
+
+```bash
+yay -S kcxy-wifi-bin
+# 或
+paru -S kcxy-wifi-bin
+```
+
+安装后编辑账号：
+
+```bash
+sudo $EDITOR /etc/kcxy-wifi/accounts.json
+sudo systemctl enable --now kcxy-wifi
+```
+
+`/etc/kcxy-wifi/` 下的配置列入 `backup`，升级时会保留你的修改。
+
+## 开机自启（手动安装）
 
 ```bash
 sudo install -Dm755 kcxy-wifi /usr/local/bin/kcxy-wifi
@@ -96,6 +115,12 @@ sudo install -Dm644 kcxy-wifi.service /etc/systemd/system/kcxy-wifi.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now kcxy-wifi
 journalctl -u kcxy-wifi -f
+```
+
+多套配置并行时用模板单元：
+
+```bash
+sudo systemctl enable --now kcxy-wifi@lab.service   # 读取 /etc/kcxy-wifi/lab.ini
 ```
 
 ## 构建
