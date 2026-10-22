@@ -47,7 +47,7 @@ sudo nano /etc/kcxy-wifi/accounts.json
 ```json
 {
   "accounts": [
-    {"username": "你的学号", "password": "你的密码", "remark": "主账号"}
+    {"username": "你的学号", "password": "身份证后六位", "remark": "主账号"}
   ]
 }
 ```

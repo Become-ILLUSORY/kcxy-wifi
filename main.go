@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -173,9 +172,10 @@ func run(cfg Config, portal *Portal, once bool) int {
 			continue
 		}
 
-		online := portal.IsOnline()
-		if online && internetOK(cfg.TestURL, cfg.PortalHost) {
-			logInfo("在线状态正常")
+		// 先看网卡本身能不能上网。USB 共享、其他网卡等场景下即使门户说
+		// 未认证，实际上网也是通的，这时不该再去认证，白白触发风控。
+		if HasInternet(cfg.Iface, cfg.PortalHost, second(5)) {
+			logInfo("网络已连通，无需认证")
 			failures = 0
 			if once {
 				return 0
@@ -183,8 +183,11 @@ func run(cfg Config, portal *Portal, once bool) int {
 			time.Sleep(second(cfg.CheckInterval))
 			continue
 		}
+
+		online := portal.IsOnline()
 		if online {
-			logWarn("门户显示在线但外网不通，重新认证")
+			// 门户说在线但探测不通，可能是探测被拦或临时抖动，再确认一次
+			logWarn("门户显示在线但外网探测不通，重新认证")
 		} else {
 			logInfo("检测到未认证或已掉线，开始登录")
 		}
@@ -264,25 +267,6 @@ func waitForLink(cfg Config, portal *Portal) bool {
 		time.Sleep(2 * time.Second)
 	}
 	return false
-}
-
-// internetOK 做真实联网检测，避免门户显示在线但实际被劫持。
-func internetOK(testURL, portalHost string) bool {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := client.Get(testURL)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		return false
-	}
-	return !strings.Contains(resp.Header.Get("Location"), portalHost)
 }
 
 func reconnectWifi(cfg Config) {
