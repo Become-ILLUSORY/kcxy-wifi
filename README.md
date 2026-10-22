@@ -17,7 +17,110 @@
 - 门户的 `getOnlineUserInfo` 返回 `userIndex` 为空
 - 访问 `test_url` 失败或被重定向回门户
 
-## 使用
+## 安装（Arch Linux / AUR）
+
+AUR 上的 `kcxy-wifi-bin` 是预编译包，安装时不需要本地装 Go。
+
+```bash
+yay -S kcxy-wifi-bin
+# 或 paru -S kcxy-wifi-bin
+```
+
+装完后文件布局：
+
+| 路径 | 说明 |
+|---|---|
+| `/usr/bin/kcxy-wifi` | 主程序 |
+| `/etc/kcxy-wifi/config.ini` | 配置，升级时保留修改 |
+| `/etc/kcxy-wifi/accounts.json` | 账号密码，权限 600 |
+| `/usr/lib/systemd/system/kcxy-wifi.service` | 单实例服务 |
+| `/usr/lib/systemd/system/kcxy-wifi@.service` | 多实例模板 |
+
+### 第一次配置
+
+包里的 `accounts.json` 只是示例，**必须先填成自己的账号**：
+
+```bash
+sudo nano /etc/kcxy-wifi/accounts.json
+```
+
+```json
+{
+  "accounts": [
+    {"username": "你的学号", "password": "你的密码", "remark": "主账号"}
+  ]
+}
+```
+
+> 密码是身份证后六位，末尾 X 大写。首次使用需到校园网服务中心开通。
+
+### 启用服务
+
+**服务安装后不会自动启动**，需要手动启用一次：
+
+```bash
+sudo systemctl enable --now kcxy-wifi
+```
+
+查看运行日志：
+
+```bash
+journalctl -u kcxy-wifi -f
+```
+
+正常时会看到：
+
+```
+INFO  网卡 wlan0 已就绪，IP 10.170.64.25
+INFO  检测到未认证或已掉线，开始登录
+INFO  账号 主账号 认证成功
+INFO  在线状态正常
+```
+
+### 常用操作
+
+```bash
+systemctl status kcxy-wifi     # 看服务状态
+sudo systemctl stop kcxy-wifi  # 停止守护（不会注销）
+sudo systemctl restart kcxy-wifi
+kcxy-wifi -status              # 查询门户侧在线状态
+kcxy-wifi -once                # 只认证一次，不常驻
+```
+
+### 下线（注销但不停止服务）
+
+`systemctl stop` 只是停掉守护进程，门户侧会话还在。要真正下线：
+
+```bash
+sudo kcxy-wifi -offline     # 注销 + 暂停自动认证
+sudo kcxy-wifi -status      # 显示「离线（已暂停自动认证）」
+sudo kcxy-wifi -resume      # 恢复，下一轮自动重新认证
+```
+
+`-offline` 会写一个暂停标记，常驻进程看到后跳过认证，所以不会被自动重连顶回去。
+标记文件在 `/var/lib/kcxy-wifi/paused`，服务和手动命令读写的是同一份。
+
+> 手动执行时如果报「读取配置失败」，加上 `-c /etc/kcxy-wifi/config.ini`。
+
+### 多套配置
+
+同一台机器想跑多份配置（比如不同网卡），用模板单元：
+
+```bash
+sudo cp /etc/kcxy-wifi/config.ini /etc/kcxy-wifi/lab.ini
+sudo systemctl enable --now kcxy-wifi@lab.service
+```
+
+`kcxy-wifi@lab` 读取 `/etc/kcxy-wifi/lab.ini`。
+
+### 卸载
+
+```bash
+sudo systemctl disable --now kcxy-wifi
+sudo pacman -Rns kcxy-wifi-bin
+```
+
+## 从源码使用
 
 ```bash
 cp config.example.ini config.ini
@@ -42,13 +145,13 @@ $EDITOR accounts.json       # 填写账号密码，可填多个
 ./kcxy-wifi -resume         # 清除标记，下一轮自动重新认证
 ```
 
-标记文件默认是当前目录下的 `kcxy-wifi.paused`，可用 `state_file` 指定。
-装成 systemd 服务时工作目录是 `/var/lib/kcxy-wifi`，标记文件也在那里，
-所以手动执行 `-offline` / `-resume` 时要带同样的 `-c` 配置路径。
+标记文件默认放 `/var/lib/kcxy-wifi/paused`（有写权限时），否则退回
+`$XDG_STATE_HOME/kcxy-wifi/paused`；可用 `state_file` 指定固定路径。
 
 ### 多账号
 
 账号密码放在独立的 JSON 文件里，由 `config.ini` 的 `accounts_file` 指向。
+相对路径按**配置文件所在目录**解析，所以从任何工作目录启动都能找到。
 每次认证会按顺序尝试，第一个能用的就停。记住上次成功的账号，下次优先用它。
 
 支持两种格式：
@@ -87,30 +190,12 @@ KCXY_USERNAME=20240001 KCXY_PASSWORD=123456 sudo -E ./kcxy-wifi
 sudo ip route add 10.147.103.3/32 via <WiFi网关> dev wlan0
 ```
 
-## 安装（Arch Linux）
-
-从 AUR 安装预编译包：
-
-```bash
-yay -S kcxy-wifi-bin
-# 或
-paru -S kcxy-wifi-bin
-```
-
-安装后编辑账号：
-
-```bash
-sudo $EDITOR /etc/kcxy-wifi/accounts.json
-sudo systemctl enable --now kcxy-wifi
-```
-
-`/etc/kcxy-wifi/` 下的配置列入 `backup`，升级时会保留你的修改。
-
-## 开机自启（手动安装）
+## 手动安装（非 Arch 或不用包管理器）
 
 ```bash
 sudo install -Dm755 kcxy-wifi /usr/local/bin/kcxy-wifi
 sudo install -Dm600 config.ini /etc/kcxy-wifi/config.ini
+sudo install -Dm600 accounts.json /etc/kcxy-wifi/accounts.json
 sudo install -Dm644 kcxy-wifi.service /etc/systemd/system/kcxy-wifi.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now kcxy-wifi

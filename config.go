@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -66,6 +67,11 @@ func LoadConfig(path string) (Config, error) {
 	}
 
 	if accountsFile != "" {
+		// 相对路径按配置文件所在目录解析，这样无论从哪个工作目录启动
+		// （尤其是 systemd 的 StateDirectory）都能找到同一份账号文件
+		if !filepath.IsAbs(accountsFile) {
+			accountsFile = filepath.Join(filepath.Dir(path), accountsFile)
+		}
 		accounts, err := LoadAccounts(accountsFile)
 		if err != nil {
 			return cfg, err
