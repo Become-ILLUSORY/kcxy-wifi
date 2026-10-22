@@ -1,0 +1,14 @@
+{
+  "accounts": [
+    {
+      "username": "20240001",
+      "password": "123456",
+      "remark": "主账号"
+    },
+    {
+      "username": "20240002",
+      "password": "654321",
+      "remark": "备用账号"
+    }
+  ]
+}

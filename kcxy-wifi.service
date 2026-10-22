@@ -1,0 +1,31 @@
+[Unit]
+Description=KCXY campus network auto authentication
+Documentation=https://github.com/Become-ILLUSORY/kcxy-wifi
+After=network-online.target NetworkManager-wait-online.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/kcxy-wifi
+Restart=always
+RestartSec=10
+# 下线标记文件统一放在这里，手动执行 -offline/-resume 也会读写同一路径
+StateDirectory=kcxy-wifi
+StateDirectoryMode=0755
+
+# 只需要访问网络，其余权限一律收紧
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

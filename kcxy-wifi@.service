@@ -1,0 +1,37 @@
+# 这是 systemd 的「模板」单元：同一台机器上想跑多个配置时，
+# 用 kcxy-wifi@<名字>.service，配合 /etc/kcxy-wifi/<名字>.ini。
+# 单实例（绝大多数情况）直接启用 kcxy-wifi.service 即可。
+#
+# 手动下线/恢复：
+#   kcxy-wifi -offline        # 注销并暂停自动认证
+#   kcxy-wifi -resume         # 恢复
+# 两者读写的是 StateDirectory 下的标记文件，与服务进程一致。
+
+[Unit]
+Description=KCXY campus network auto authentication (%i)
+Documentation=https://github.com/Become-ILLUSORY/kcxy-wifi
+After=network-online.target NetworkManager-wait-online.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/kcxy-wifi -c /etc/kcxy-wifi/%i.ini
+Restart=always
+RestartSec=10
+StateDirectory=kcxy-wifi
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

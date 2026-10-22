@@ -1,0 +1,46 @@
+# Maintainer: illusory <becomeillusory@gmail.com>
+pkgname=kcxy-wifi
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="河南开封科技传媒学院校园网（锐捷 RG-SAM+ eportal）自动认证与掉线重连"
+arch=('x86_64' 'aarch64' 'armv7h')
+url="https://github.com/Become-ILLUSORY/kcxy-wifi"
+license=('MIT')
+depends=('glibc')
+makedepends=('go')
+backup=('etc/kcxy-wifi/config.ini' 'etc/kcxy-wifi/accounts.json')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
+        "$url/raw/v$pkgver/kcxy-wifi.service"
+        "$url/raw/v$pkgver/kcxy-wifi@.service"
+        "$url/raw/v$pkgver/LICENSE")
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CGO_ENABLED=0
+  go build -trimpath \
+    -ldflags "-s -w -X main.version=$pkgver" \
+    -o kcxy-wifi .
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  go test ./...
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm755 kcxy-wifi "$pkgdir/usr/bin/kcxy-wifi"
+  install -Dm644 "$srcdir/kcxy-wifi.service" "$pkgdir/usr/lib/systemd/system/kcxy-wifi.service"
+  install -Dm644 "$srcdir/kcxy-wifi@.service" "$pkgdir/usr/lib/systemd/system/kcxy-wifi@.service"
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # 配置文件放 /etc 并列入 backup，升级时保留用户修改
+  install -Dm644 config.example.ini "$pkgdir/etc/kcxy-wifi/config.ini"
+  install -Dm644 accounts.example.json "$pkgdir/etc/kcxy-wifi/accounts.json"
+  chmod 600 "$pkgdir/etc/kcxy-wifi/accounts.json"
+}

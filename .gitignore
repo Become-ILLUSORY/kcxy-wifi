@@ -1,0 +1,6 @@
+kcxy-wifi
+config.ini
+accounts.json
+*.paused
+*.tar.gz
+*.sha256
