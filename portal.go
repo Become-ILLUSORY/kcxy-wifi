@@ -230,7 +230,22 @@ func reverseRunes(s string) string {
 	return string(runes)
 }
 
+// Logout 注销当前在线会话。
+//
+// 门户前端的注销是 logout(userIndex)，只认 userIndex；
+// 直接发 queryString 时服务端虽然可能回 success，但会话和 MAC 绑定未必真正释放。
 func (p *Portal) Logout() (*LoginResult, error) {
+	index := ""
+	if info, err := p.OnlineInfo(); err == nil && info.UserIndex != nil {
+		index = *info.UserIndex
+	}
+
+	if index != "" {
+		var result LoginResult
+		err := p.postJSON("logout", url.Values{"userIndex": {index}}, &result)
+		return &result, err
+	}
+
 	qs, err := p.QueryString()
 	if err != nil {
 		return nil, err
