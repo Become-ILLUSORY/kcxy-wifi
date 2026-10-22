@@ -35,6 +35,38 @@ func TestRSAEncryptRejectsOversizedPassword(t *testing.T) {
 	}
 }
 
+func TestReverseRunes(t *testing.T) {
+	cases := map[string]string{
+		"secret123": "321terces",
+		"abc":       "cba",
+		"a":         "a",
+		"":          "",
+		"密码123":     "321码密",
+	}
+	for in, want := range cases {
+		if got := reverseRunes(in); got != want {
+			t.Errorf("reverseRunes(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// 门户登录前会反转密码再加密，这里锁定「反转后加密」的结果，
+// 防止以后误改回直接加密（那样服务端会报密码错误）。
+func TestRSAEncryptReversedPassword(t *testing.T) {
+	const want = "7efd8fd98fa4fde686ee35e7f2d2a914a82548af54e0e69c973dd1dc1c3819aa" +
+		"982ad50ee65011687b6652ca12e66a6377c3a9539fb3ca1543fb7cf1e88eb56e5" +
+		"946620d2b09ed454bfe8451fb7f430018af0c0a82e1f70bcf317cb1b398a5f541" +
+		"ad8215c3ae963d7ea45d46aeade264fad40bc2aab7dd375e0b8c2ddc378aa7"
+
+	got, err := RSAEncrypt(reverseRunes("secret123"), testModulus, "10001")
+	if err != nil {
+		t.Fatalf("RSAEncrypt 出错: %v", err)
+	}
+	if got != want {
+		t.Fatalf("反转密码加密结果不一致\n got: %s\nwant: %s", got, want)
+	}
+}
+
 func TestRSAEncryptDefaultsExponent(t *testing.T) {
 	withDefault, err := RSAEncrypt("test", testModulus, "")
 	if err != nil {

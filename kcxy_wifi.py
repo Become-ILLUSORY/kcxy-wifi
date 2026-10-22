@@ -100,9 +100,13 @@ class Portal:
         return "&".join(parts)
 
     def _post_json(self, method: str, data: dict) -> dict:
+        # 门户前端手工拼接表单体，queryString 里的 url 不做二次编码，
+        # 这里同样按原始字符串提交，避免 requests 再转义一次
+        body = "&".join(f"{k}={v}" for k, v in data.items())
         resp = self.session.post(
             f"{self.base}/InterFace.do?method={method}",
-            data=data,
+            data=body,
+            headers={"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
             timeout=self.timeout,
         )
         resp.raise_for_status()
@@ -112,12 +116,18 @@ class Portal:
     def page_info(self) -> dict:
         return self._post_json("pageInfo", {"queryString": self._query_string()})
 
+    def warmup(self) -> None:
+        """先访问门户首页建立会话，否则加密登录会被判为密码错误。"""
+        self.session.get(f"{self.base}/index.jsp", timeout=self.timeout)
+
     def login(self, username: str, password: str) -> dict:
+        self.warmup()
         info = self.page_info()
-        encrypt = bool(info.get("passwordEncrypt"))
+        encrypt = str(info.get("passwordEncrypt", "")).lower() == "true"
         if encrypt:
+            # 门户前端加密前会把密码反转：password.split("").reverse().join("")
             encrypted = rsa_encrypt(
-                password,
+                password[::-1],
                 info["publicKeyModulus"],
                 info.get("publicKeyExponent", "10001"),
             )

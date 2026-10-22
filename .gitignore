@@ -4,3 +4,5 @@ accounts.json
 *.paused
 *.tar.gz
 *.sha256
+*.har
+__pycache__/
