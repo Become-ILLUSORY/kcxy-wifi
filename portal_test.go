@@ -174,3 +174,26 @@ func TestMaskUsername(t *testing.T) {
 		t.Fatalf("短账号脱敏错误: %s", got)
 	}
 }
+
+func TestIsRiskControlMessage(t *testing.T) {
+	positive := []string{
+		"验证码错误.",
+		"认证设备响应超时,请稍后再试!",
+		"操作过于频繁",
+	}
+	for _, msg := range positive {
+		if !isRiskControlMessage(msg) {
+			t.Errorf("%q 应被识别为风控", msg)
+		}
+	}
+	negative := []string{
+		"用户不存在或者密码错误!",
+		"校园网认证失败：账号不存在，请到联系校园网服务中心开通。",
+		"",
+	}
+	for _, msg := range negative {
+		if isRiskControlMessage(msg) {
+			t.Errorf("%q 不应被识别为风控", msg)
+		}
+	}
+}

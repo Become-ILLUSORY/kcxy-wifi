@@ -23,6 +23,17 @@ func logError(format string, args ...any) { logger.Printf("ERROR "+format, args.
 
 func second(n int) time.Duration { return time.Duration(n) * time.Second }
 
+// isRiskControlMessage 判断门户是否因为风控/验证码而拒绝认证。
+// 这类错误重试再快也没用，反而会延长封禁时间。
+func isRiskControlMessage(msg string) bool {
+	for _, keyword := range []string{"验证码", "频繁", "稍后再试", "响应超时"} {
+		if strings.Contains(msg, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 // resolveConfigPath 依次尝试：显式参数、系统配置、当前目录、用户配置。
 // 系统级安装（pacman）和直接下载二进制两种用法都能开箱即用。
 func resolveConfigPath(explicit string) string {
@@ -179,6 +190,7 @@ func run(cfg Config, portal *Portal, once bool) int {
 		}
 
 		ok := false
+		needValidCode := false
 		for i := 0; i < len(cfg.Accounts); i++ {
 			idx := (start + i) % len(cfg.Accounts)
 			account := cfg.Accounts[idx]
@@ -195,6 +207,9 @@ func run(cfg Config, portal *Portal, once bool) int {
 				ok = true
 				break
 			}
+			if isRiskControlMessage(result.Message) {
+				needValidCode = true
+			}
 			logWarn("账号 %s 认证失败: %s", account.Label(), result.Message)
 		}
 
@@ -204,6 +219,17 @@ func run(cfg Config, portal *Portal, once bool) int {
 				return 0
 			}
 			time.Sleep(second(cfg.CheckInterval))
+			continue
+		}
+
+		if needValidCode {
+			// 门户要求验证码时脚本无法完成认证，继续高频重试只会延长风控时间
+			logError("门户要求验证码，脚本无法自动完成。请用浏览器登录一次，或等待风控解除")
+			if once {
+				return 1
+			}
+			time.Sleep(second(cfg.BackoffSecond))
+			failures = 0
 			continue
 		}
 
